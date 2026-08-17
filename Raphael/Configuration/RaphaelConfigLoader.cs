@@ -135,7 +135,7 @@ namespace Raphael.Configuration
                     _config = config;
                     return config;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     // If config loading fails, use defaults
                     config.Environments["Development"] = new EnvironmentConfig();

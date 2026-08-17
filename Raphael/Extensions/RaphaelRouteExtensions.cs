@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raphael.Configuration;
 using Raphael.Effects;
@@ -21,7 +24,7 @@ namespace Raphael.Extensions
                 IImageLoaderService loader,
                 IEffectProcessor effectProcessor,
                 IOptions<RaphaelConfig> options,
-                ILogger<Program> logger) =>
+                ILogger logger) =>
             {
                 if (queries.Img == null)
                     return Results.BadRequest("Image URL is required");

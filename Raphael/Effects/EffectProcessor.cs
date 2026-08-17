@@ -90,7 +90,7 @@ namespace Raphael.Effects
                 try
                 {
                     _logger.LogDebug("Applying effect: {EffectName}", name);
-                    currentBitmap = await ApplyEffectAsync(currentBitmap, type, parameters);
+                    currentBitmap = ApplyEffect(currentBitmap, type, parameters);
                 }
                 catch (Exception ex)
                 {
@@ -102,7 +102,7 @@ namespace Raphael.Effects
             return currentBitmap;
         }
 
-        private async Task<SKBitmap> ApplyEffectAsync(SKBitmap bitmap, Type effectType, object parameters)
+        private SKBitmap ApplyEffect(SKBitmap bitmap, Type effectType, object parameters)
         {
             if (!typeof(IEffect).IsAssignableFrom(effectType))
                 throw new InvalidOperationException($"Type {effectType.Name} does not implement IEffect");
@@ -131,7 +131,7 @@ namespace Raphael.Effects
                 }
             }
 
-            await effect.Apply(bitmap);
+            effect.Apply(bitmap);
             return bitmap;
         }
 

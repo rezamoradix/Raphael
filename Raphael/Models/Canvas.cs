@@ -28,7 +28,7 @@ namespace Raphael.Models
 
             foreach (var effect in _effects)
             {
-                await effect.Apply(bitmap);
+                effect.Apply(bitmap);
             }
 
             return new RenderResult(SKImage.FromBitmap(bitmap));

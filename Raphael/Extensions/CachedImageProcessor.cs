@@ -112,6 +112,9 @@ namespace Raphael.Extensions
 
             var result = await processor(bitmap);
 
+            if (result == null)
+                throw new InvalidOperationException($"Processor returned null for: {source}");
+
             // Cache results
             if (_options.EnableMemoryCache && result != null)
             {
@@ -141,7 +144,7 @@ namespace Raphael.Extensions
                 }
             }
 
-            return result;
+            return result!;
         }
 
         public async Task<SKBitmap> LoadAndCacheBitmapAsync(string source)

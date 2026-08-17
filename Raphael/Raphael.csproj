@@ -1,4 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
@@ -6,10 +10,27 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Platforms>AnyCPU;x64</Platforms>
+		<PackageId>Raphael</PackageId>
+		<Title>Raphael</Title>
+		<Authors>rezamoradix</Authors>
+		<Description>A lightweight real-time image processing pipeline for ASP.NET Core. Process images via URL parameters - resize, crop, watermark, and apply color transformations through a single HTTP endpoint. Built with SkiaSharp.</Description>
+		<PackageTags>graphics;2d;rendering;skia</PackageTags>
+		<RepositoryUrl>https://github.com/rezamoradix/Raphael</RepositoryUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<IsPackable>true</IsPackable>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 	</PropertyGroup>
 
-	<ItemGroup>
-		<PackageReference Include="SkiaSharp" Version="3.119.4" />
-	</ItemGroup>
+<ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+  </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Program.cs" />
+  </ItemGroup>
 </Project>

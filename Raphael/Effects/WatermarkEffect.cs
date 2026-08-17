@@ -48,147 +48,138 @@ public class WatermarkEffect : IEffect
     public float Scale { get; set; } = 0.25f; // Relative to main image size
     public bool PreserveImageAspectRatio { get; set; } = true;
 
-    public async ValueTask Apply(SKBitmap bitmap)
-    {
-        if (bitmap == null || bitmap.Width == 0 || bitmap.Height == 0)
-            return;
-
-        using var canvas = new SKCanvas(bitmap);
-
-        switch (Type)
+public void Apply(SKBitmap bitmap)
         {
-            case WatermarkType.Text:
-                await ApplyTextWatermarkAsync(canvas, bitmap);
-                break;
-            case WatermarkType.Image:
-                await ApplyImageWatermarkAsync(canvas, bitmap);
-                break;
-        }
-    }
-
-    private async ValueTask ApplyTextWatermarkAsync(SKCanvas canvas, SKBitmap bitmap)
-    {
-        if (string.IsNullOrEmpty(Text))
-            return;
-
-        using var paint = new SKPaint
-        {
-            Color = TextColor.WithAlpha((byte)(Opacity * 255)),
-            TextSize = FontSize,
-            IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName(FontFamily)
-        };
-
-        // Measure text
-        var textBounds = new SKRect();
-        paint.MeasureText(Text, ref textBounds);
-
-        // Calculate position
-        var position = CalculatePosition(
-            bitmap.Width, bitmap.Height,
-            textBounds.Width, textBounds.Height,
-            Position, Margin);
-
-        // Draw shadow if enabled
-        if (TextShadow)
-        {
-            using var shadowPaint = new SKPaint
-            {
-                Color = ShadowColor.WithAlpha((byte)(Opacity * 128)),
-                TextSize = FontSize,
-                IsAntialias = true,
-                Typeface = SKTypeface.FromFamilyName(FontFamily),
-                MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, ShadowBlur)
-            };
-            canvas.DrawText(Text, position.X + ShadowOffsetX, position.Y + ShadowOffsetY, shadowPaint);
-        }
-
-        // Draw text
-        canvas.DrawText(Text, position.X, position.Y, paint);
-    }
-
-    private async ValueTask ApplyImageWatermarkAsync(SKCanvas canvas, SKBitmap bitmap)
-    {
-        SKBitmap? watermarkBitmap = null;
-
-        try
-        {
-            // Load watermark image from bytes or URL
-            if (WatermarkImage != null && WatermarkImage.Length > 0)
-            {
-                watermarkBitmap = SKBitmap.Decode(WatermarkImage);
-            }
-            else if (!string.IsNullOrEmpty(WatermarkImageUrl))
-            {
-                using var httpClient = new HttpClient();
-                var imageBytes = await httpClient.GetByteArrayAsync(WatermarkImageUrl);
-                watermarkBitmap = SKBitmap.Decode(imageBytes);
-            }
-
-            if (watermarkBitmap == null)
+            if (bitmap == null || bitmap.Width == 0 || bitmap.Height == 0)
                 return;
 
-            // Calculate scaled dimensions
-            int watermarkWidth = watermarkBitmap.Width;
-            int watermarkHeight = watermarkBitmap.Height;
+            using var canvas = new SKCanvas(bitmap);
 
-            if (Scale > 0)
+            switch (Type)
             {
-                float scaleFactor = Math.Min(
-                    (bitmap.Width * Scale) / watermarkWidth,
-                    (bitmap.Height * Scale) / watermarkHeight
-                );
-
-                if (PreserveImageAspectRatio)
-                {
-                    watermarkWidth = (int)(watermarkWidth * scaleFactor);
-                    watermarkHeight = (int)(watermarkHeight * scaleFactor);
-                }
-                else
-                {
-                    watermarkWidth = (int)(bitmap.Width * Scale);
-                    watermarkHeight = (int)(bitmap.Height * Scale);
-                }
+                case WatermarkType.Text:
+                    ApplyTextWatermark(canvas, bitmap);
+                    break;
+                case WatermarkType.Image:
+                    ApplyImageWatermark(canvas, bitmap);
+                    break;
             }
+        }
 
-            // Ensure minimum size
-            watermarkWidth = Math.Max(1, watermarkWidth);
-            watermarkHeight = Math.Max(1, watermarkHeight);
+private void ApplyTextWatermark(SKCanvas canvas, SKBitmap bitmap)
+        {
+            if (string.IsNullOrEmpty(Text))
+                return;
 
-            // Resize watermark if needed
-            if (watermarkWidth != watermarkBitmap.Width || watermarkHeight != watermarkBitmap.Height)
+            using var font = new SKFont(SKTypeface.FromFamilyName(FontFamily), FontSize);
+            using var paint = new SKPaint
             {
-                var resizedWatermark = watermarkBitmap.Resize(
-                    new SKImageInfo(watermarkWidth, watermarkHeight),
-                    SKSamplingOptions.Default);
-                if (resizedWatermark != null)
-                {
-                    watermarkBitmap.Dispose();
-                    watermarkBitmap = resizedWatermark;
-                }
-            }
+                Color = TextColor.WithAlpha((byte)(Opacity * 255)),
+                IsAntialias = true
+            };
+
+            // Measure text
+            var textWidth = font.MeasureText(Text, paint);
+            var textHeight = font.Metrics.Descent - font.Metrics.Ascent;
 
             // Calculate position
             var position = CalculatePosition(
                 bitmap.Width, bitmap.Height,
-                watermarkWidth, watermarkHeight,
+                textWidth, textHeight,
                 Position, Margin);
 
-            // Draw watermark with opacity
-            using var paint = new SKPaint
+            // Draw shadow if enabled
+            if (TextShadow)
             {
-                Color = SKColors.White.WithAlpha((byte)(Opacity * 255)),
-                IsAntialias = true,
-                FilterQuality = SKFilterQuality.High
-            };
+                using var shadowFont = new SKFont(SKTypeface.FromFamilyName(FontFamily), FontSize);
+                using var shadowPaint = new SKPaint
+                {
+                    Color = ShadowColor.WithAlpha((byte)(Opacity * 128)),
+                    IsAntialias = true,
+                    MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, ShadowBlur)
+                };
+                canvas.DrawText(Text, position.X + ShadowOffsetX, position.Y + ShadowOffsetY, SKTextAlign.Left, shadowFont, shadowPaint);
+            }
 
-            canvas.DrawBitmap(watermarkBitmap, position.X, position.Y, paint);
+            // Draw text
+            canvas.DrawText(Text, position.X, position.Y, SKTextAlign.Left, font, paint);
         }
-        finally
+
+private void ApplyImageWatermark(SKCanvas canvas, SKBitmap bitmap)
         {
-            watermarkBitmap?.Dispose();
+            SKBitmap? watermarkBitmap = null;
+
+            try
+            {
+                // Load watermark image from bytes only (URL loading removed for sync interface)
+                if (WatermarkImage != null && WatermarkImage.Length > 0)
+                {
+                    watermarkBitmap = SKBitmap.Decode(WatermarkImage);
+                }
+
+                if (watermarkBitmap == null)
+                    return;
+
+                // Calculate scaled dimensions
+                int watermarkWidth = watermarkBitmap.Width;
+                int watermarkHeight = watermarkBitmap.Height;
+
+                if (Scale > 0)
+                {
+                    float scaleFactor = Math.Min(
+                        (bitmap.Width * Scale) / watermarkWidth,
+                        (bitmap.Height * Scale) / watermarkHeight
+                    );
+
+                    if (PreserveImageAspectRatio)
+                    {
+                        watermarkWidth = (int)(watermarkWidth * scaleFactor);
+                        watermarkHeight = (int)(watermarkHeight * scaleFactor);
+                    }
+                    else
+                    {
+                        watermarkWidth = (int)(bitmap.Width * Scale);
+                        watermarkHeight = (int)(bitmap.Height * Scale);
+                    }
+                }
+
+                // Ensure minimum size
+                watermarkWidth = Math.Max(1, watermarkWidth);
+                watermarkHeight = Math.Max(1, watermarkHeight);
+
+                // Resize watermark if needed
+                if (watermarkWidth != watermarkBitmap.Width || watermarkHeight != watermarkBitmap.Height)
+                {
+                    var resizedWatermark = watermarkBitmap.Resize(
+                        new SKImageInfo(watermarkWidth, watermarkHeight),
+                        SKSamplingOptions.Default);
+                    if (resizedWatermark != null)
+                    {
+                        watermarkBitmap.Dispose();
+                        watermarkBitmap = resizedWatermark;
+                    }
+                }
+
+                // Calculate position
+                var position = CalculatePosition(
+                    bitmap.Width, bitmap.Height,
+                    watermarkWidth, watermarkHeight,
+                    Position, Margin);
+
+                // Draw watermark with opacity
+                using var paint = new SKPaint
+                {
+                    Color = SKColors.White.WithAlpha((byte)(Opacity * 255)),
+                    IsAntialias = true
+                };
+
+                canvas.DrawBitmap(watermarkBitmap, position.X, position.Y, paint);
+            }
+            finally
+            {
+                watermarkBitmap?.Dispose();
+            }
         }
-    }
 
     private SKPoint CalculatePosition(
         int canvasWidth, int canvasHeight,

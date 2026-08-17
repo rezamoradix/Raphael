@@ -15,23 +15,20 @@ namespace Raphael.Effects
         public bool PreserveAlpha { get; set; } = true;
 
 
-        public async ValueTask Apply(SKBitmap bitmap)
+        public void Apply(SKBitmap bitmap)
         {
             ArgumentNullException.ThrowIfNull(bitmap, nameof(bitmap));
 
-            await Task.Run(() =>
-            {
-                using var filter = SKColorFilter.CreateColorMatrix(Matrix);
-                using var paint = new SKPaint { ColorFilter = filter };
+            using var filter = SKColorFilter.CreateColorMatrix(Matrix);
+            using var paint = new SKPaint { ColorFilter = filter };
 
-                var info = new SKImageInfo(bitmap.Width, bitmap.Height);
-                using var result = new SKBitmap(info);
-                using var canvas = new SKCanvas(result);
-                canvas.DrawBitmap(bitmap, 0, 0, paint);
+            var info = new SKImageInfo(bitmap.Width, bitmap.Height);
+            using var result = new SKBitmap(info);
+            using var canvas = new SKCanvas(result);
+            canvas.DrawBitmap(bitmap, 0, 0, paint);
 
-                using var pixmap = result.PeekPixels();
-                bitmap.SetPixels(result.GetPixels());
-            });
+            using var pixmap = result.PeekPixels();
+            bitmap.SetPixels(result.GetPixels());
         }
     }
 }
