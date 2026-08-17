@@ -1,6 +1,17 @@
 # Raphael
 
-A lightweight real-time image processing pipeline for ASP.NET Core. Process images via URL parameters — resize, crop, watermark, and apply color transformations through a single HTTP endpoint. Built with SkiaSharp.
+<p align="center">
+  <img
+    width="256"
+    height="256"
+    alt="Raphael"
+    src="https://github.com/user-attachments/assets/fcf6da03-6d00-4d1c-bc8a-5b7e7d7f788a"
+  />
+</p>
+
+**Raphael** is a lightweight real-time image processing pipeline for ASP.NET Core, built with .NET and SkiaSharp.
+
+It provides a simple HTTP endpoint for resizing, cropping, watermarking, transforming, and processing images through query parameters.
 
 ## Usage
 
@@ -16,13 +27,13 @@ app.AddRaphaelRoutes();
 
 Images can then be processed through the `/_raphael` endpoint:
 
-```
+```text
 /_raphael?url=https://example.com/image.jpg&width=800
 ```
 
 Multiple processing options can be combined:
 
-```
+```text
 /_raphael?url=https://example.com/image.jpg&width=800&height=600
 ```
 
@@ -32,10 +43,10 @@ The processing pipeline discovers available effects automatically and applies th
 
 Raphael currently includes:
 
-- **Resize** - Resize image to specified dimensions
-- **Crop** - Crop image to specified area
-- **Color Matrix** - Apply color transformation using a color matrix
-- **Watermark** - Add text or image watermark
+* Resize
+* Crop
+* Color Matrix
+* Watermark
 
 Effects are extensible through the `IEffect` interface and can be discovered automatically using the `Effect` attribute.
 
@@ -43,12 +54,12 @@ Effects are extensible through the `IEffect` interface and can be discovered aut
 
 Raphael supports configuration for:
 
-- Effect order
-- Effect mappings
-- Default image quality
-- Maximum image dimensions
-- Output image format
-- Allowed image sources
+* Effect order
+* Effect mappings
+* Default image quality
+* Maximum image dimensions
+* Output image format
+* Allowed image sources
 
 ## Why Raphael?
 
@@ -56,9 +67,9 @@ Raphael is designed to make image processing simple to integrate into web applic
 
 ## Built With
 
-- .NET
-- ASP.NET Core
-- SkiaSharp
+* .NET
+* ASP.NET Core
+* SkiaSharp
 
 ## License
 
