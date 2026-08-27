@@ -32,8 +32,8 @@ namespace Raphael.Extensions
                 services.AddMemoryCache();
             }
 
-            // Register loader registry and factory
-            services.AddSingleton<ILoaderRegistry, LoaderRegistry>();
+            // Register loader factory. ILoaderRegistry itself is registered inside
+            // RegisterLoadersFromConfig below, not here - see that method's comment.
             services.AddSingleton<LoaderFactory>();
 
             // Create and register ImageLoaderOptions
@@ -62,12 +62,18 @@ namespace Raphael.Extensions
 
         private static void RegisterLoadersFromConfig(IServiceCollection services, RaphaelConfig config)
         {
-            // Build loader registry
-            services.AddSingleton(sp =>
+            // The sole ILoaderRegistry registration (AddRaphael no longer registers one
+            // separately - see its own comment). Building the concrete LoaderRegistry directly
+            // here, rather than resolving ILoaderRegistry from the container, matters: the old
+            // code called sp.GetRequiredService<ILoaderRegistry>() from *inside* this same
+            // factory, which - now that this is also the only descriptor for that service type -
+            // would deadlock resolving itself (the singleton lock for ILoaderRegistry isn't
+            // re-entrant), rather than recursing or throwing a circular-dependency error.
+            services.AddSingleton<ILoaderRegistry>(sp =>
             {
-                var registry = sp.GetRequiredService<ILoaderRegistry>();
-                var factory = sp.GetRequiredService<LoaderFactory>();
                 var logger = sp.GetRequiredService<ILogger<LoaderRegistry>>();
+                var registry = new LoaderRegistry(logger);
+                var factory = sp.GetRequiredService<LoaderFactory>();
 
                 // Register each loader from config
                 foreach (var (name, loaderEntry) in config.Loaders.Loaders)

@@ -24,7 +24,7 @@ namespace Raphael.Extensions
                 IImageLoaderService loader,
                 IEffectProcessor effectProcessor,
                 IOptions<RaphaelConfig> options,
-                ILogger logger) =>
+                [FromServices] ILogger<RaphaelConfig> logger) =>
             {
                 if (queries.Img == null)
                     return Results.BadRequest("Image URL is required");
