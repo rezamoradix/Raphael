@@ -78,9 +78,8 @@ public class CropEffect : IEffect
             }
         }
 
-        // Clamp crop area to bitmap bounds
-        cropX = Math.Clamp(cropX, 0, bitmap.Width - 1);
-        cropY = Math.Clamp(cropY, 0, bitmap.Height - 1);
+        cropX = Math.Max(0, cropX);
+        cropY = Math.Max(0, cropY);
         int cropWidth = Math.Min(Width, bitmap.Width - cropX);
         int cropHeight = Math.Min(Height, bitmap.Height - cropY);
 

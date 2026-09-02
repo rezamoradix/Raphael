@@ -44,26 +44,19 @@ public class ResizeEffect : IEffect
                 newHeight = Height;
                 newWidth = (int)(originalWidth * (float)Height / originalHeight);
             }
-
-            // Ensure at least 1x1
-            newWidth = Math.Max(1, newWidth);
-            newHeight = Math.Max(1, newHeight);
         }
         else
         {
             // Stretch to exact dimensions
             newWidth = Width > 0 ? Width : bitmap.Width;
             newHeight = Height > 0 ? Height : bitmap.Height;
-
-            // Ensure at least 1x1
-            newWidth = Math.Max(1, newWidth);
-            newHeight = Math.Max(1, newHeight);
         }
+
+        // Ensure at least 1x1
+        newWidth = Math.Max(1, newWidth);
+        newHeight = Math.Max(1, newHeight);
 
         var resized = bitmap.Resize(new SKImageInfo(newWidth, newHeight), SKSamplingOptions.Default);
-        if (resized != null)
-        {
-            resized.CopyTo(bitmap);
-        }
+        resized?.CopyTo(bitmap);
     }
 }
