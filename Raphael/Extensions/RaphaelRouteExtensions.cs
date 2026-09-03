@@ -38,6 +38,7 @@ namespace Raphael.Extensions
                     // Determine format and quality
                     var format = queries.Format ?? Models.ImageFormat.Jpeg;
                     var quality = queries.Quality ?? options.Value.Processing.DefaultQuality;
+                    queries.ResizeQuality ??= options.Value.Processing.DefaultResizeQuality;
 
                     // Load image with caching
                     var imageData = await loader.LoadCachedAsync(url);

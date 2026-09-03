@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Raphael.Effects;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -433,6 +434,11 @@ namespace Raphael.Configuration
         /// Maximum degree of parallelism
         /// </summary>
         public int MaxDegreeOfParallelism { get; set; } = 4;
+
+        /// <summary>
+        /// Default resize sampling quality (Fast/Smooth/High) used when a request doesn't specify one
+        /// </summary>
+        public ResizeQuality DefaultResizeQuality { get; set; } = ResizeQuality.Smooth;
 
         /// <summary>
         /// Enable image optimization
@@ -945,7 +951,8 @@ namespace Raphael.Configuration
                     AllowAnimatedImages = true,
                     MaxAnimationFrames = 100,
                     EnableParallelProcessing = true,
-                    MaxDegreeOfParallelism = 4
+                    MaxDegreeOfParallelism = 4,
+                    DefaultResizeQuality = ResizeQuality.Smooth
                 },
                 Security = new SecurityConfig
                 {
@@ -1171,7 +1178,8 @@ namespace Raphael.Configuration
                 AllowAnimatedImages = child.AllowAnimatedImages,
                 MaxAnimationFrames = child.MaxAnimationFrames > 0 ? child.MaxAnimationFrames : parent.MaxAnimationFrames,
                 EnableParallelProcessing = child.EnableParallelProcessing,
-                MaxDegreeOfParallelism = child.MaxDegreeOfParallelism > 0 ? child.MaxDegreeOfParallelism : parent.MaxDegreeOfParallelism
+                MaxDegreeOfParallelism = child.MaxDegreeOfParallelism > 0 ? child.MaxDegreeOfParallelism : parent.MaxDegreeOfParallelism,
+                DefaultResizeQuality = child.DefaultResizeQuality
             };
         }
 

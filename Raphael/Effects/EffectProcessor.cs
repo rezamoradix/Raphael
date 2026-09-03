@@ -288,6 +288,10 @@ namespace Raphael.Effects
                 Mappings = new Dictionary<string, string>()
             };
 
+            // Use an actual instance so defaults reflect the effect's own property initializers
+            // (e.g. ResizeEffect.ResizeQuality defaults to Smooth) instead of hardcoded zero-values.
+            var sample = Activator.CreateInstance(effectType);
+
             // Generate default mappings for properties
             foreach (var prop in effectType.GetProperties().Where(p => p.CanWrite))
             {
@@ -302,17 +306,14 @@ namespace Raphael.Effects
 
                 mapping.Mappings[queryName] = prop.Name;
 
-                // Set default values based on property type
-                if (prop.PropertyType == typeof(int))
-                    mapping.Defaults[prop.Name] = "0";
-                else if (prop.PropertyType == typeof(float) || prop.PropertyType == typeof(double))
-                    mapping.Defaults[prop.Name] = "0";
-                else if (prop.PropertyType == typeof(bool))
-                    mapping.Defaults[prop.Name] = "false";
-                else if (prop.PropertyType.IsEnum)
-                    mapping.Defaults[prop.Name] = "0";
-                else if (prop.PropertyType == typeof(string))
-                    mapping.Defaults[prop.Name] = string.Empty;
+                // Set default values from the effect's own property initializer
+                var defaultValue = sample != null ? prop.GetValue(sample) : null;
+                mapping.Defaults[prop.Name] = defaultValue switch
+                {
+                    null => prop.PropertyType == typeof(string) ? string.Empty : "0",
+                    bool b => b ? "true" : "false",
+                    _ => Convert.ToString(defaultValue, System.Globalization.CultureInfo.InvariantCulture) ?? "0"
+                };
             }
 
             return mapping;

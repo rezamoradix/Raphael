@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Raphael.Effects;
 using SkiaSharp;
 
 namespace Raphael.Models
@@ -17,6 +18,9 @@ namespace Raphael.Models
 
         [FromQuery]
         public bool? PreserveAspectRatio { get; set; }
+
+        [FromQuery]
+        public ResizeQuality? ResizeQuality { get; set; }
 
         // Crop parameters
         [FromQuery]
