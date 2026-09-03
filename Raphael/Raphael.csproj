@@ -24,6 +24,9 @@
 
 <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="3.119.4" />
+    <!-- SkiaSharp only auto-restores native binaries for Win32/macOS; Linux (incl. the
+         ubuntu-latest CI runner) needs this explicitly or SKBitmap throws DllNotFoundException. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
   </ItemGroup>
 
   <ItemGroup>
