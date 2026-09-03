@@ -37,6 +37,14 @@ Multiple processing options can be combined:
 /_raphael?url=https://example.com/image.jpg&width=800&height=600
 ```
 
+Control resize sampling quality per-request with `resizeQuality` (`Fast`, `Smooth`, or `High`):
+
+```text
+/_raphael?url=https://example.com/image.jpg&width=800&resizeQuality=High
+```
+
+`Fast` is nearest-neighbor (cheapest, blocky edges), `Smooth` is bilinear (balanced, smooth edges), and `High` is cubic (Mitchell) resampling (slowest, sharpest/smoothest). When omitted, the request falls back to `Processing.DefaultResizeQuality`.
+
 The processing pipeline discovers available effects automatically and applies them according to the configured effect order.
 
 ## Effects
@@ -159,6 +167,7 @@ Loaders handle fetching images from various sources.
 | `MaxAnimationFrames` | int | `100` | Maximum frames to process |
 | `EnableParallelProcessing` | bool | `true` | Use parallelism for batch ops |
 | `MaxDegreeOfParallelism` | int | `4` | Max concurrent operations |
+| `DefaultResizeQuality` | string | `"Smooth"` | Default resize sampling quality (`Fast`, `Smooth`, `High`) when a request doesn't specify `resizeQuality` |
 | `EnableOptimization` | bool | `true` | Enable encoder optimizations |
 | `EnableProgressiveJpeg` | bool | `false` | Progressive JPEG encoding |
 | `DefaultBackgroundColor` | string | `"#FFFFFF"` | Background for transparent images |
@@ -347,7 +356,8 @@ Map query parameters to effect properties:
           "DefaultFormat": "WebP",
           "StripMetadata": true,
           "AllowAnimatedImages": true,
-          "MaxAnimationFrames": 50
+          "MaxAnimationFrames": 50,
+          "DefaultResizeQuality": "High"
         },
         "Security": {
           "ValidateImageBeforeProcessing": true,
