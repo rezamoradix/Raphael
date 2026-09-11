@@ -11,16 +11,28 @@ namespace Raphael.Extensions
 {
     public interface ICachedImageProcessor
     {
-        Task<byte[]> ProcessAndCacheAsync(string source, Func<SKBitmap, Task<byte[]>> processor);
-        Task<SKBitmap> LoadAndCacheBitmapAsync(string source);
+        /// <summary>Returns the cached bytes for <paramref name="cacheKey"/> if present (memory,
+        /// then file), otherwise runs <paramref name="factory"/> once, caches its result, and
+        /// returns that. Callers key this by the *whole* request (source URL + every query
+        /// parameter that affects the output - crop/resize/format/quality/...), not just the
+        /// source image, since two requests for the same source with different parameters must
+        /// never collide on the same cache entry.</summary>
+        Task<byte[]> GetOrCreateAsync(string cacheKey, Func<Task<byte[]>> factory);
         void ClearCache();
         void ClearFileCache();
         Task<long> GetCacheSizeAsync();
     }
 
+    /// <summary>Caches the fully processed (decoded, cropped/resized/watermarked, re-encoded)
+    /// output bytes RaphaelRouteExtensions' main endpoint produces - not the raw source bytes,
+    /// which IImageLoaderService.LoadCachedAsync already caches on its own. Without this, the
+    /// same product thumbnail requested by every visitor re-runs the whole SkiaSharp decode +
+    /// effects + encode pipeline from scratch on every single hit, even though the output for a
+    /// given URL+query string never changes (uploaded files get a fresh GUID filename per upload
+    /// - see IImageStorage.SaveAsync in the main app - so a URL's bytes are effectively
+    /// immutable once produced).</summary>
     public class CachedImageProcessor : ICachedImageProcessor
     {
-        private readonly IImageLoaderService _loaderService;
         private readonly IMemoryCache _memoryCache;
         private readonly ILogger<CachedImageProcessor> _logger;
         private readonly ImageLoaderOptions _options;
@@ -33,7 +45,10 @@ namespace Raphael.Extensions
             ILogger<CachedImageProcessor> logger,
             ImageLoaderOptions options)
         {
-            _loaderService = loaderService ?? throw new ArgumentNullException(nameof(loaderService));
+            // loaderService isn't used directly any more (the caller's factory already goes
+            // through it for the source bytes) - kept as a constructor parameter so DI resolution
+            // order/registration doesn't need to change.
+            _ = loaderService ?? throw new ArgumentNullException(nameof(loaderService));
             _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -50,26 +65,21 @@ namespace Raphael.Extensions
             _logger.LogInformation("Processed cache directory: {Directory}", _processedCacheDirectory);
         }
 
-        public async Task<byte[]> ProcessAndCacheAsync(string source, Func<SKBitmap, Task<byte[]>> processor)
+        public async Task<byte[]> GetOrCreateAsync(string cacheKey, Func<Task<byte[]>> factory)
         {
-            if (string.IsNullOrEmpty(source))
-                throw new ArgumentException("Source cannot be null or empty", nameof(source));
+            if (string.IsNullOrEmpty(cacheKey))
+                throw new ArgumentException("Cache key cannot be null or empty", nameof(cacheKey));
+            if (factory == null)
+                throw new ArgumentNullException(nameof(factory));
 
-            if (processor == null)
-                throw new ArgumentNullException(nameof(processor));
+            var fullCacheKey = $"processed_{GenerateCacheKey(cacheKey)}";
 
-            var cacheKey = GenerateCacheKey(source);
-            var processorHash = processor.GetHashCode();
-            var fullCacheKey = $"processed_{cacheKey}_{processorHash}";
-
-            // Check memory cache
             if (_options.EnableMemoryCache && _memoryCache.TryGetValue(fullCacheKey, out byte[]? cachedData) && cachedData != null)
             {
-                _logger.LogDebug("Memory cache hit for processed: {Source}", source);
+                _logger.LogDebug("Memory cache hit for processed: {CacheKey}", cacheKey);
                 return cachedData;
             }
 
-            // Check file cache
             if (_options.EnableFileCache)
             {
                 var filePath = GetProcessedCachePath(fullCacheKey);
@@ -81,12 +91,10 @@ namespace Raphael.Extensions
                         try
                         {
                             var data = await File.ReadAllBytesAsync(filePath);
-                            _logger.LogDebug("File cache hit for processed: {Source}", source);
+                            _logger.LogDebug("File cache hit for processed: {CacheKey}", cacheKey);
 
                             if (_options.EnableMemoryCache)
-                            {
                                 _memoryCache.Set(fullCacheKey, data, GetMemoryCacheEntryOptions());
-                            }
 
                             return data;
                         }
@@ -97,32 +105,23 @@ namespace Raphael.Extensions
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to read processed cache for {Source}", source);
+                        _logger.LogWarning(ex, "Failed to read processed cache for {CacheKey}", cacheKey);
                     }
                 }
             }
 
-            // Process fresh
-            _logger.LogDebug("Processing fresh image: {Source}", source);
-            var imageData = await _loaderService.LoadCachedAsync(source);
-            using var bitmap = SKBitmap.Decode(imageData);
-
-            if (bitmap == null)
-                throw new InvalidOperationException($"Failed to decode image: {source}");
-
-            var result = await processor(bitmap);
-
+            _logger.LogDebug("Processing fresh image: {CacheKey}", cacheKey);
+            var result = await factory();
             if (result == null)
-                throw new InvalidOperationException($"Processor returned null for: {source}");
+                throw new InvalidOperationException($"Processing factory returned null for: {cacheKey}");
 
-            // Cache results
-            if (_options.EnableMemoryCache && result != null)
+            if (_options.EnableMemoryCache)
             {
                 _memoryCache.Set(fullCacheKey, result, GetMemoryCacheEntryOptions());
                 _logger.LogDebug("Stored in memory cache: {CacheKey}", fullCacheKey);
             }
 
-            if (_options.EnableFileCache && result != null)
+            if (_options.EnableFileCache)
             {
                 var filePath = GetProcessedCachePath(fullCacheKey);
                 try
@@ -140,51 +139,20 @@ namespace Raphael.Extensions
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to store processed cache for {Source}", source);
+                    _logger.LogWarning(ex, "Failed to store processed cache for {CacheKey}", cacheKey);
                 }
             }
 
-            return result!;
-        }
-
-        public async Task<SKBitmap> LoadAndCacheBitmapAsync(string source)
-        {
-            if (string.IsNullOrEmpty(source))
-                throw new ArgumentException("Source cannot be null or empty", nameof(source));
-
-            var cacheKey = GenerateCacheKey(source);
-            var fullCacheKey = $"bitmap_{cacheKey}";
-
-            // Check memory cache
-            if (_options.EnableMemoryCache && _memoryCache.TryGetValue(fullCacheKey, out byte[]? cachedData) && cachedData != null)
-            {
-                _logger.LogDebug("Bitmap cache hit for {Source}", source);
-                return SKBitmap.Decode(cachedData);
-            }
-
-            // Load fresh
-            var data = await _loaderService.LoadCachedAsync(source);
-            var bitmap = SKBitmap.Decode(data);
-
-            if (bitmap == null)
-                throw new InvalidOperationException($"Failed to decode image: {source}");
-
-            // Store in memory cache
-            if (_options.EnableMemoryCache && data != null)
-            {
-                _memoryCache.Set(fullCacheKey, data, GetMemoryCacheEntryOptions());
-                _logger.LogDebug("Stored bitmap in memory cache: {CacheKey}", fullCacheKey);
-            }
-
-            return bitmap;
+            return result;
         }
 
         public void ClearCache()
         {
             if (_options.EnableMemoryCache)
             {
-                // MemoryCache doesn't have a direct Clear method
-                // We could implement a tracking mechanism, but for now we log
+                // MemoryCache doesn't have a direct Clear method - we could implement a tracking
+                // mechanism, but for now log; entries still expire on their own via
+                // GetMemoryCacheEntryOptions()'s sliding/absolute expiration.
                 _logger.LogInformation("Processed memory cache cleared");
             }
 
@@ -218,10 +186,13 @@ namespace Raphael.Extensions
             }
         }
 
-        public async Task<long> GetCacheSizeAsync()
+        // Not actually async internally (plain Directory/FileInfo I/O) - Task.FromResult rather
+        // than the `async` keyword avoids a "this method lacks 'await'" warning, while keeping
+        // the interface async for parity with GetOrCreateAsync and room for real async I/O later.
+        public Task<long> GetCacheSizeAsync()
         {
             if (!_options.EnableFileCache || !Directory.Exists(_processedCacheDirectory))
-                return 0;
+                return Task.FromResult(0L);
 
             try
             {
@@ -236,12 +207,12 @@ namespace Raphael.Extensions
                     }
                     catch { }
                 }
-                return totalSize;
+                return Task.FromResult(totalSize);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to calculate cache size");
-                return 0;
+                return Task.FromResult(0L);
             }
         }
 
@@ -253,7 +224,7 @@ namespace Raphael.Extensions
             return Path.Combine(dirPath, $"{cacheKey}.cache");
         }
 
-        private string GenerateCacheKey(string source)
+        private static string GenerateCacheKey(string source)
         {
             using var sha256 = System.Security.Cryptography.SHA256.Create();
             var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(source));
