@@ -28,6 +28,76 @@ namespace Raphael.Extensions
             };
         }
 
+        /// <summary>
+        /// Decodes an image with its EXIF orientation APPLIED, so the pixels come out the way an image viewer or a
+        /// browser shows the file. <c>SKBitmap.Decode</c> alone returns the raw stored pixels and ignores the
+        /// orientation tag, so a phone photo (stored sideways, tagged "rotate 90") that looks upright everywhere
+        /// else rendered sideways here. Everything downstream - the crop rectangle (which callers record against
+        /// the upright picture) and the resize - must see the upright bitmap, so this is the one decode to use.
+        /// Returns null when the data can't be decoded (same as <c>SKBitmap.Decode</c>).
+        /// </summary>
+        public static SKBitmap? DecodeOriented(byte[] imageData)
+        {
+            using var codec = SKCodec.Create(new SKMemoryStream(imageData));
+            if (codec == null)
+                return null;
+            var decoded = SKBitmap.Decode(codec);
+            if (decoded == null)
+                return null;
+
+            var origin = codec.EncodedOrigin;
+            if (!TryGetOriginTransform(origin, decoded.Width, decoded.Height, out var matrix, out var width, out var height))
+                return decoded; // TopLeft / unknown: already upright
+
+            var upright = new SKBitmap(width, height, decoded.ColorType, decoded.AlphaType);
+            using (var canvas = new SKCanvas(upright))
+            {
+                canvas.SetMatrix(matrix);
+                canvas.DrawBitmap(decoded, 0, 0);
+            }
+            decoded.Dispose();
+            return upright;
+        }
+
+        /// <summary>The transform that turns the stored pixels of an EXIF orientation (1-8) into the upright picture,
+        /// with the upright size. False for orientation 1 (nothing to do).</summary>
+        private static bool TryGetOriginTransform(SKEncodedOrigin origin, int w, int h, out SKMatrix matrix, out int width, out int height)
+        {
+            width = w;
+            height = h;
+            switch (origin)
+            {
+                case SKEncodedOrigin.TopRight:     // 2: mirrored horizontally
+                    matrix = new SKMatrix(-1, 0, w, 0, 1, 0, 0, 0, 1);
+                    return true;
+                case SKEncodedOrigin.BottomRight:  // 3: rotated 180
+                    matrix = new SKMatrix(-1, 0, w, 0, -1, h, 0, 0, 1);
+                    return true;
+                case SKEncodedOrigin.BottomLeft:   // 4: mirrored vertically
+                    matrix = new SKMatrix(1, 0, 0, 0, -1, h, 0, 0, 1);
+                    return true;
+                case SKEncodedOrigin.LeftTop:      // 5: transposed
+                    (width, height) = (h, w);
+                    matrix = new SKMatrix(0, 1, 0, 1, 0, 0, 0, 0, 1);
+                    return true;
+                case SKEncodedOrigin.RightTop:     // 6: rotate 90 clockwise (the usual phone portrait)
+                    (width, height) = (h, w);
+                    matrix = new SKMatrix(0, -1, h, 1, 0, 0, 0, 0, 1);
+                    return true;
+                case SKEncodedOrigin.RightBottom:  // 7: transverse
+                    (width, height) = (h, w);
+                    matrix = new SKMatrix(0, -1, h, -1, 0, w, 0, 0, 1);
+                    return true;
+                case SKEncodedOrigin.LeftBottom:   // 8: rotate 90 counter-clockwise
+                    (width, height) = (h, w);
+                    matrix = new SKMatrix(0, 1, 0, -1, 0, w, 0, 0, 1);
+                    return true;
+                default:
+                    matrix = SKMatrix.Identity;
+                    return false;
+            }
+        }
+
         public static byte[] Encode(this SKBitmap bitmap, Models.ImageFormat format, int quality = 75)
         {
             var skFormat = format switch

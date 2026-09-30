@@ -65,7 +65,9 @@ namespace Raphael.Extensions
                     {
                         encoded = await cachedProcessor.GetOrCreateAsync(cacheKey, async () =>
                         {
-                            using var bitmap = SKBitmap.Decode(imageData);
+                            // Orientation applied (phone photos are stored sideways + an EXIF tag): the crop rectangle and the
+                            // resize below are both in terms of the upright picture.
+                            using var bitmap = ImageExtensions.DecodeOriented(imageData);
                             if (bitmap == null)
                                 throw new ImageDecodeException("Unable to decode image");
 
