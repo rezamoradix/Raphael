@@ -22,6 +22,11 @@ namespace Raphael.Models
         [FromQuery]
         public ResizeQuality? ResizeQuality { get; set; }
 
+        /// <summary>false = never enlarge: a requested size bigger than the source (after any crop) is ignored and the
+        /// picture comes out at its own size - upscaling only adds bytes, not detail. Unset/true keeps the old behaviour.</summary>
+        [FromQuery]
+        public bool? Upscale { get; set; }
+
         // Crop parameters
         [FromQuery]
         public int? CropX { get; set; }

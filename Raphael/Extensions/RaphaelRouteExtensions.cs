@@ -71,6 +71,7 @@ namespace Raphael.Extensions
                             if (bitmap == null)
                                 throw new ImageDecodeException("Unable to decode image");
 
+                            queries.LimitToSource(bitmap.Width, bitmap.Height); // Upscale=false: never enlarge a small source
                             var processedBitmap = await effectProcessor.ApplyEffectsAsync(bitmap, queries);
                             return processedBitmap.Encode(format, quality);
                         });
