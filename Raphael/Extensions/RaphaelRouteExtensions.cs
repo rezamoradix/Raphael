@@ -44,7 +44,8 @@ namespace Raphael.Extensions
                     // encoded format decide the output format (see DetectFormat) - both before we
                     // know whether this request is a processed-cache hit or miss, so the response's
                     // Content-Type header is always right either way.
-                    var imageData = await loader.LoadCachedAsync(url);
+                    // `v` is a version the caller changes whenever the file behind `img` is replaced in place: part of the source cache key.
+                    var imageData = await loader.LoadCachedAsync(url, httpContext.Request.Query["v"].ToString());
                     var format = queries.Format ?? imageData.DetectFormat();
                     var quality = queries.Quality ?? options.Value.Processing.DefaultQuality;
                     queries.ResizeQuality ??= options.Value.Processing.DefaultResizeQuality;

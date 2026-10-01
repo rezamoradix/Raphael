@@ -84,12 +84,14 @@ namespace Raphael.Loaders
             return false;
         }
 
-        public async Task<byte[]> LoadCachedAsync(string source)
+        public async Task<byte[]> LoadCachedAsync(string source, string? version = null)
         {
             if (string.IsNullOrEmpty(source))
                 throw new ArgumentException("Source cannot be null or empty", nameof(source));
 
-            var cacheKey = GenerateCacheKey(source);
+            // A source that is replaced IN PLACE (same name, new bytes - a picture rotated or cropped by its owner) must not keep
+            // being served from the old cached bytes: callers pass a version that changes with the content, and it is part of the key.
+            var cacheKey = GenerateCacheKey(string.IsNullOrEmpty(version) ? source : source + "\n" + version);
 
             // Check memory cache
             if (_options.EnableMemoryCache && _memoryCache != null)
@@ -313,7 +315,8 @@ namespace Raphael.Loaders
     {
         Task<byte[]> LoadAsync(string source);
         bool CanLoad(string source);
-        Task<byte[]> LoadCachedAsync(string source);
+        /// <summary>The source's bytes, cached by source AND <paramref name="version"/> (null = unversioned): a new version is a new entry.</summary>
+        Task<byte[]> LoadCachedAsync(string source, string? version = null);
         void ClearCache();
         void ClearFileCache();
     }
