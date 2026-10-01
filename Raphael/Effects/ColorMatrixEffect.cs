@@ -22,13 +22,14 @@ namespace Raphael.Effects
             using var filter = SKColorFilter.CreateColorMatrix(Matrix);
             using var paint = new SKPaint { ColorFilter = filter };
 
-            var info = new SKImageInfo(bitmap.Width, bitmap.Height);
-            using var result = new SKBitmap(info);
+            // Match the source's color type; a default SKImageInfo is Bgra8888 on most platforms,
+            // which would swap red/blue when copied back into an Rgba8888 bitmap.
+            using var result = new SKBitmap(bitmap.Info);
             using var canvas = new SKCanvas(result);
             canvas.DrawBitmap(bitmap, 0, 0, paint);
 
-            using var pixmap = result.PeekPixels();
-            bitmap.SetPixels(result.GetPixels());
+            // Copy the pixels: SetPixels would only point at `result`'s buffer, which is freed on dispose.
+            result.GetPixelSpan().CopyTo(bitmap.GetPixelSpan());
         }
     }
 }

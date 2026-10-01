@@ -1,0 +1,51 @@
+name: Publish NuGet package
+
+# Publish by pushing a version tag, e.g.:  git tag v1.2.3 && git push origin v1.2.3
+# Requires the repository secret NUGET_API_KEY.
+on:
+  push:
+    tags: [ "v*.*.*" ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to attach the .nupkg to a GitHub release
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Resolve version from tag
+      id: version
+      run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+    - name: Restore
+      run: dotnet restore
+
+    - name: Test
+      run: dotnet test -c Release --no-restore --verbosity normal
+
+    - name: Pack
+      run: >
+        dotnet pack Raphael/Raphael.csproj -c Release --no-restore
+        -p:Version=${{ steps.version.outputs.value }}
+        -p:GeneratePackageOnBuild=false
+        -o ./artifacts
+
+    - name: Push to NuGet.org
+      run: >
+        dotnet nuget push "./artifacts/*.nupkg"
+        --api-key "${{ secrets.NUGET_API_KEY }}"
+        --source https://api.nuget.org/v3/index.json
+        --skip-duplicate
+
+    - name: Create GitHub release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ./artifacts/*.nupkg
+        generate_release_notes: true
